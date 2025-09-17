@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tabla periódica de etiquetas HTML — Mejorada</title>
+<style>
+:root{
+  --cell-size:90px;
+  --gap:10px;
+  --bg-1:#071022;
+  --text:#e6eef8;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;font-family:Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;background:linear-gradient(180deg,#071022 0%, #081227 100%);color:var(--text);padding:20px;}
+.container{max-width:1200px;margin:0 auto}
+h1{font-size:20px;margin:0 0 12px 0;text-align:center;font-weight:700}
+.note{font-size:13px;text-align:center;margin-bottom:10px;opacity:.95}
+.controls{display:flex;gap:8px;justify-content:center;margin-bottom:12px}
+.search{padding:10px 14px;border-radius:10px;border:1px solid rgba(255,255,255,0.06);background:rgba(3,8,18,0.6);color:var(--text);width:360px}
+.grid{display:grid;grid-template-columns:repeat(18,1fr);gap:var(--gap);align-items:start}
+.element{
+  --h:200;
+  position:relative;
+  background:linear-gradient(180deg,hsl(var(--h) 60% 25%), hsl(calc(var(--h) + 18) 60% 18%));
+  color:var(--text);
+  border-radius:10px;padding:12px;min-height:var(--cell-size);display:flex;flex-direction:column;justify-content:space-between;cursor:default;overflow:visible;
+  border:1px solid rgba(255,255,255,0.05);
+  transition:transform .36s cubic-bezier(.2,.9,.2,1), box-shadow .36s cubic-bezier(.2,.9,.2,1), filter .28s;
+  box-shadow:0 6px 18px rgba(2,6,23,0.55);
+  transform-origin:center center;
+}
+.elem-tag{font-weight:800;font-size:15px;letter-spacing:0.02em}
+.elem-mini{font-size:12px;opacity:.95}
+.element:hover{transform:translateY(-8px) scale(1.04) rotate(0deg);box-shadow:0 18px 40px rgba(2,6,23,0.75);filter:brightness(1.08)}
+
+/* make the hit area more generous */
+.element:before{content:'';position:absolute;inset: -10px; border-radius:12px;}
+
+/* gentle floating / 'mover etiquetas de manera rara' */
+@keyframes floaty{0%{transform:translateY(0) rotate(0deg)}50%{transform:translateY(-6px) rotate(-1.6deg)}100%{transform:translateY(0) rotate(0deg)}}
+.element.floaty{animation-name:floaty;animation-duration:6s;animation-iteration-count:infinite;animation-timing-function:ease-in-out}
+
+/* popover */
+.popover{position:fixed;z-index:9999;max-width:340px;background:linear-gradient(180deg,#0b1a2a,#071226);border:1px solid rgba(255,255,255,0.06);padding:14px;border-radius:12px;box-shadow:0 18px 50px rgba(2,6,23,0.85);transform-origin:center center;transform:scale(.82);opacity:0;transition:transform .24s cubic-bezier(.2,.9,.2,1),opacity .18s; color:var(--text)}
+.pop-tag{font-weight:900;margin-bottom:8px;font-size:16px}
+.pop-desc{font-size:14px;line-height:1.35;opacity:.95}
+.popover.show{transform:scale(1);opacity:1}
+.popover .arrow{position:absolute;width:14px;height:14px;background:inherit;border-left:1px solid rgba(255,255,255,0.03);border-top:1px solid rgba(255,255,255,0.03);transform:rotate(45deg);left:calc(50% - 7px);top:-8px}
+
+/* responsive */
+@media (max-width:900px){.grid{grid-template-columns:repeat(8,1fr)}}
+@media (max-width:480px){.grid{grid-template-columns:repeat(4,1fr)}:root{--cell-size:78px}}
+
+.legend{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:14px;font-size:12px;opacity:.9}
+.legend .item{background:rgba(255,255,255,0.03);padding:8px 10px;border-radius:8px}
+
+/* nice typography for popover text */
+.pop-tag small{display:block;font-weight:600;opacity:.85;margin-top:6px;font-size:13px}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>Tabla periódica de etiquetas HTML — Hover para ver definición</h1>
+<p class="note">Pasa el cursor sobre una celda; aparecerá una notificación emergente que proviene suavemente de esa celda. Las etiquetas se mueven ligeramente y tienen color.</p>
+<div class="controls">
+<input class="search" id="search" placeholder="Buscar etiqueta (ej: h1, img, section)">
+</div>
+<div class="grid" id="grid">
+<!-- (mismo contenido de celdas que tenía el documento original, se conserva) -->
+</div>
+<div class="legend">
+<div class="item">Hover suave con debounce para evitar parpadeo</div>
+<div class="item">Colores HSL por grupo, movimiento sutil aleatorio</div>
+</div>
+</div>
+
+<script>
+// --- reconstrucción segura del contenido original ---
+// Para mantener legibilidad en el canvas he dejado las celdas fuera del HTML
+// y las voy a generar aquí igual que estaban en el original. Esto facilita
+// aplicar colores y animaciones dinámicamente.
+
+const tags = [
+  ['html','Raíz de un documento HTML; contiene <head> y <body>','Esto sirve para raíz de un documento html; contiene <head> y <body>.' ],
+  ['head','Contiene metadatos del documento','Esto sirve para contiene metadatos del documento (título, enlaces a CSS, meta).'],
+  ['title','Define el título mostrado en la pestaña','Esto sirve para define el título mostrado en la pestaña del navegador.'],
+  ['base','Especifica la URL base para enlaces relativos','Esto sirve para especifica la url base para enlaces relativos.'],
+  ['link','Enlaza recursos externos (CSS, iconos)','Esto sirve para enlaza recursos externos (css, iconos).'],
+  ['meta','Metadatos: charset, viewport, descripciones','Esto sirve para metadatos: charset, viewport, descripciones, etc.'],
+  ['style','Contiene reglas CSS internas','Esto sirve para contiene reglas css internas.'],
+  ['body','Contiene el contenido visible de la página','Esto sirve para contiene el contenido visible de la página.'],
+  ['section','Sección genérica de contenido temático','Esto sirve para sección genérica de contenido temático.'],
+  ['nav','Bloque de navegación con enlaces principales','Esto sirve para bloque de navegación con enlaces principales.'],
+  ['article','Contenido independiente y autocontenido (artículo)','Esto sirve para contenido independiente y autocontenido (artículo).'],
+  ['aside','Contenido secundario relacionado (barra lateral)','Esto sirve para contenido secundario relacionado (barra lateral).'],
+  ['h1','Encabezado de nivel 1','Esto sirve para encabezado de nivel 1.'],
+  ['h2','Encabezado de nivel 2','Esto sirve para encabezado de nivel 2.'],
+  ['h3','Encabezado de nivel 3','Esto sirve para encabezado de nivel 3.'],
+  ['h4','Encabezado de nivel 4','Esto sirve para encabezado de nivel 4.'],
+  ['h5','Encabezado de nivel 5','Esto sirve para encabezado de nivel 5.'],
+  ['h6','Encabezado de nivel 6','Esto sirve para encabezado de nivel 6.'],
+  ['header','Encabezado introductorio de una sección o página','Esto sirve para encabezado introductorio de una sección o página.'],
+  ['footer','Pie de página de una sección o documento','Esto sirve para pie de página de una sección o documento.'],
+  ['address','Información de contacto o autoría','Esto sirve para información de contacto o autoría.'],
+  ['main','Contenido principal de la página; solo uno por documento','Esto sirve para contenido principal de la página; solo uno por documento.'],
+  ['p','Párrafo de texto','Esto sirve para párrafo de texto.'],
+  ['hr','Línea horizontal para separar contenido','Esto sirve para línea horizontal para separar contenido.'],
+  ['pre','Texto preformateado que preserva espacios y saltos','Esto sirve para texto preformateado que preserva espacios y saltos.'],
+  ['blockquote','Cita larga o bloque de cita','Esto sirve para cita larga o bloque de cita.'],
+  ['ol','Lista ordenada','Esto sirve para lista ordenada.'],
+  ['ul','Lista desordenada','Esto sirve para lista desordenada.'],
+  ['li','Elemento de lista','Esto sirve para elemento de lista.'],
+  ['dl','Lista de definiciones','Esto sirve para lista de definiciones (description list).'],
+  ['dt','Término en una lista de definiciones','Esto sirve para término en una lista de definiciones.'],
+  ['dd','Descripción del término en una lista de definiciones','Esto sirve para descripción del término en una lista de definiciones.'],
+  ['figure','Contenedor para contenido ilustrativo (imagen, diagrama)','Esto sirve para contenedor para contenido ilustrativo (imagen, diagrama).'],
+  ['figcaption','Leyenda o pie de una figura','Esto sirve para leyenda o pie de una figura.'],
+  ['div','Contenedor genérico en bloque','Esto sirve para contenedor genérico en bloque.'],
+  ['a','Enlace (hipervínculo) a otra URL o ancla','Esto sirve para enlace (hipervínculo) a otra url o ancla.'],
+  ['em','Énfasis en texto (habitualmente itálica)','Esto sirve para énfasis en texto (habitualmente itálica).'],
+  ['strong','Indica importancia; normalmente negrita','Esto sirve para indica importancia; normalmente negrita.'],
+  ['small','Texto de menor tamaño, para notas o aclaraciones','Esto sirve para texto de menor tamaño, para notas o aclaraciones.'],
+  ['s','Texto tachado que indica eliminación o error','Esto sirve para texto tachado que indica eliminación o error.'],
+  ['cite','Referencia a una obra o autor','Esto sirve para referencia a una obra o autor.'],
+  ['q','Cita corta en línea','Esto sirve para cita corta en línea.'],
+  ['dfn','Definición de un término','Esto sirve para definición de un término.'],
+  ['abbr','Abreviatura con explicación opcional','Esto sirve para abreviatura con explicación opcional.'],
+  ['data','Asocia contenido legible con un valor de máquina','Esto sirve para asocia contenido legible con un valor de máquina.'],
+  ['time','Representa una fecha u hora','Esto sirve para representa una fecha u hora.'],
+  ['code','Fragmento de código en línea','Esto sirve para fragmento de código en línea.'],
+  ['var','Nombre de variable o parámetro','Esto sirve para nombre de variable o parámetro.'],
+  ['samp','Salida de ejemplo de programa','Esto sirve para salida de ejemplo de programa.'],
+  ['kbd','Entrada del teclado (teclas)','Esto sirve para entrada del teclado (teclas).'],
+  ['sub','Texto subíndice','Esto sirve para texto subíndice.'],
+  ['sup','Texto superíndice','Esto sirve para texto superíndice.'],
+  ['i','Texto en cursiva con intención semántica alternativa','Esto sirve para texto en cursiva con intención semántica alternativa.'],
+  ['b','Texto en negrita sin importancia semántica extra','Esto sirve para texto en negrita sin importancia semántica extra.'],
+  ['u','Texto subrayado con significado no semántico visual','Esto sirve para texto subrayado con significado no semántico visual.'],
+  ['mark','Texto marcado o resaltado','Esto sirve para texto marcado o resaltado.'],
+  ['ruby','Contenedor para anotaciones de pronunciación (ruby)','Esto sirve para contenedor para anotaciones de pronunciación (ruby).'],
+  ['rt','Texto de la anotación (ruby text)','Esto sirve para texto de la anotación (ruby text).'],
+  ['rp','Paréntesis para navegadores sin soporte ruby','Esto sirve para paréntesis para navegadores sin soporte ruby.'],
+  ['span','Contenedor en línea genérico','Esto sirve para contenedor en línea genérico.'],
+  ['br','Salto de línea forzado','Esto sirve para salto de línea forzado.'],
+  ['wbr','Posible punto de quiebre de palabra','Esto sirve para posible punto de quiebre de palabra.'],
+  ['ins','Texto insertado (modificaciones)','Esto sirve para texto insertado (modificaciones).'],
+  ['del','Texto eliminado (modificaciones)','Esto sirve para texto eliminado (modificaciones).'],
+  ['img','Imagen embebida (src, alt obligatorio por accesibilidad)','Esto sirve para imagen embebida (src, alt obligatorio por accesibilidad).'],
+  ['iframe','Marco embebido que carga otra página','Esto sirve para marco embebido que carga otra página.'],
+  ['embed','Inserta contenido externo (multimedia, plugins)','Esto sirve para inserta contenido externo (multimedia, plugins).'],
+  ['object','Contenedor para recursos externos (flash, applets)','Esto sirve para contenedor para recursos externos (flash, applets).'],
+  ['param','Parámetro para objetos embebidos','Esto sirve para parámetro para objetos embebidos.'],
+  ['video','Reproducción de vídeo nativo','Esto sirve para reproducción de vídeo nativo.'],
+  ['audio','Reproducción de audio nativo','Esto sirve para reproducción de audio nativo.'],
+  ['source','Fuente alternativa para <video> o <audio>','Esto sirve para fuente alternativa para <video> o <audio>.'],
+  ['track','Pistas de subtítulos o metadata para multimedia','Esto sirve para pistas de subtítulos o metadata para multimedia.'],
+  ['canvas','Área de dibujo 2D/3D mediante scripting','Esto sirve para área de dibujo 2d/3d mediante scripting.'],
+  ['map','Mapa de imágenes con zonas clicables','Esto sirve para mapa de imágenes con zonas clicables.'],
+  ['area','Área clicable dentro de un <map>','Esto sirve para área clicable dentro de un <map>.'],
+  ['svg','Gráficos vectoriales escalables en XML','Esto sirve para gráficos vectoriales escalables en xml.'],
+  ['table','Tabla de datos','Esto sirve para tabla de datos.'],
+  ['caption','Leyenda de una tabla','Esto sirve para leyenda de una tabla.'],
+  ['colgroup','Agrupa columnas en una tabla','Esto sirve para agrupa columnas en una tabla.'],
+  ['col','Define una columna en una tabla','Esto sirve para define una columna en una tabla.'],
+  ['tbody','Cuerpo de la tabla','Esto sirve para cuerpo de la tabla (<tr> dentro).'],
+  ['thead','Encabezado de la tabla','Esto sirve para encabezado de la tabla.'],
+  ['tfoot','Pie de la tabla','Esto sirve para pie de la tabla.'],
+  ['tr','Fila de una tabla','Esto sirve para fila de una tabla.'],
+  ['td','Celda de datos de una tabla','Esto sirve para celda de datos de una tabla.'],
+  ['th','Celda de encabezado de una tabla','Esto sirve para celda de encabezado de una tabla.'],
+  ['form','Formulario para enviar datos al servidor','Esto sirve para formulario para enviar datos al servidor.'],
+  ['fieldset','Agrupa campos relacionados en un formulario','Esto sirve para agrupa campos relacionados en un formulario.'],
+  ['legend','Leyenda para un fieldset','Esto sirve para leyenda para un fieldset.'],
+  ['label','Etiqueta asociada a un control de formulario','Esto sirve para etiqueta asociada a un control de formulario.'],
+  ['input','Control interactivo (texto, checkbox, radio, etc.)','Esto sirve para control interactivo (texto, checkbox, radio, etc.).'],
+  ['button','Botón interactivo','Esto sirve para botón interactivo.'],
+  ['select','Lista desplegable (select)','Esto sirve para lista desplegable (select).'],
+  ['datalist','Lista de sugerencias para un input','Esto sirve para lista de sugerencias para un input.'],
+  ['optgroup','Grupo de opciones dentro de un select','Esto sirve para grupo de opciones dentro de un select.'],
+  ['option','Opción dentro de un select','Esto sirve para opción dentro de un select.'],
+  ['textarea','Área de texto multilínea','Esto sirve para área de texto multilínea.'],
+  ['output','Resultado de un cálculo de formulario','Esto sirve para resultado de un cálculo de formulario.'],
+  ['progress','Barra de progreso con valor','Esto sirve para barra de progreso con valor.'],
+  ['meter','Indicador de medición dentro de un rango','Esto sirve para indicador de medición dentro de un rango.'],
+  ['details','Widget de detalles desplegables','Esto sirve para widget de detalles desplegables.'],
+  ['summary','Resumen clicable que controla <details>','Esto sirve para resumen clicable que controla <details>.'],
+  ['dialog','Diálogo modal o cuadro de diálogo','Esto sirve para diálogo modal o cuadro de diálogo.'],
+  ['menu','Lista de comandos o menú de contexto','Esto sirve para lista de comandos o menú de contexto.'],
+  ['slot','Marcador de posición para Web Components','Esto sirve para marcador de posición para web components.'],
+  ['template','Fragmento de HTML inactivo para clonar','Esto sirve para fragmento de html inactivo para clonar.'],
+  ['script','Incluye o define scripts JS','Esto sirve para incluye o define scripts js.'],
+  ['noscript','Contenido mostrado si JS está deshabilitado','Esto sirve para contenido mostrado si js está deshabilitado.'],
+  ['picture','Contenedor de imágenes adaptativas (<source>)','Esto sirve para contenedor de imágenes adaptativas (<source>).']
+];
+
+const grid = document.getElementById('grid');
+
+// generate cells
+tags.forEach((t,i)=>{
+  const el = document.createElement('div');
+  el.className = 'element floaty';
+  // color cycle
+  const hue = (i*22) % 360;
+  el.style.setProperty('--h', hue);
+  // small random rotation offset so layout feels 'moved'
+  const rot = (Math.random()*6 - 3).toFixed(2); // -3..3 deg
+  el.style.transform = `rotate(${rot}deg)`;
+  el.innerHTML = `<div><div class="elem-tag">&lt;${t[0]}&gt;</div><div class="elem-mini">${t[1]}</div></div>`;
+  el.dataset.tag = t[0];
+  el.dataset.label = t[1];
+  el.dataset.desc = t[2];
+  el.tabIndex = 0;
+  // animation timing variety
+  el.style.animationDuration = (5 + Math.random()*4)+'s';
+  el.style.animationDelay = (Math.random()*2)+'s';
+  grid.appendChild(el);
+});
+
+// ---------- popover logic with debounce to make hover "tranquilo" ---------
+let pop = null;
+let removeTimeout = null;
+let activeEl = null;
+
+function makePopover(tag,label,desc,rect, sourceEl){
+  if(pop){ pop.remove(); pop = null; }
+  pop = document.createElement('div');
+  pop.className = 'popover';
+  pop.innerHTML = `<div class="arrow"></div><div class="pop-tag">&lt;${tag}&gt; — ${label}</div><div class="pop-desc">${desc}</div>`;
+  document.body.appendChild(pop);
+
+  // position
+  const popRect = pop.getBoundingClientRect();
+  let top = rect.top - popRect.height - 12;
+  let left = rect.left + (rect.width/2) - (popRect.width/2);
+  left = Math.max(8, Math.min(left, window.innerWidth - popRect.width - 8));
+  if(top < 8){
+    top = rect.bottom + 12;
+    pop.querySelector('.arrow').style.top = '-8px';
+    pop.querySelector('.arrow').style.transform = 'rotate(45deg)';
+  } else {
+    pop.querySelector('.arrow').style.top = (popRect.height - -8) + 'px';
+    pop.querySelector('.arrow').style.transform = 'rotate(225deg)';
+  }
+  pop.style.left = left + 'px';
+  pop.style.top = top + 'px';
+
+  // keep pop when hovering it
+  pop.addEventListener('mouseenter', ()=>{
+    if(removeTimeout) { clearTimeout(removeTimeout); removeTimeout = null; }
+  });
+  pop.addEventListener('mouseleave', ()=>{ scheduleRemove(); });
+
+  requestAnimationFrame(()=>pop.classList.add('show'));
+}
+function scheduleRemove(){
+  if(removeTimeout) clearTimeout(removeTimeout);
+  removeTimeout = setTimeout(()=>{
+    if(pop){ pop.classList.remove('show'); setTimeout(()=>{ if(pop){ pop.remove(); pop=null; } },240); }
+  }, 360); // slightly longer so user has time
+}
+
+// attach listeners to each element
+grid.querySelectorAll('.element').forEach(el=>{
+  el.addEventListener('mouseenter', (e)=>{
+    if(removeTimeout){ clearTimeout(removeTimeout); removeTimeout = null; }
+    activeEl = el;
+    const tag = el.dataset.tag;
+    const label = el.dataset.label;
+    const desc = el.dataset.desc;
+    const rect = el.getBoundingClientRect();
+    makePopover(tag,label,desc,rect, el);
+    // subtle scale up on the element (done via hover CSS) but ensure it stays while popover active
+    el.style.zIndex = 50;
+  });
+  el.addEventListener('mouseleave', (e)=>{
+    el.style.zIndex = '';
+    scheduleRemove();
+  });
+  el.addEventListener('focus', (e)=>{
+    if(removeTimeout){ clearTimeout(removeTimeout); removeTimeout = null; }
+    const rect = el.getBoundingClientRect();
+    makePopover(el.dataset.tag, el.dataset.label, el.dataset.desc, rect, el);
+  });
+  el.addEventListener('blur', (e)=>{ scheduleRemove(); });
+});
+
+// search filter (keeps layout; hides non-matching)
+const search = document.getElementById('search');
+search.addEventListener('input', (e)=>{
+  const q = e.target.value.trim().toLowerCase();
+  grid.querySelectorAll('.element').forEach(el=>{
+    const t = el.dataset.tag.toLowerCase();
+    const l = el.dataset.label.toLowerCase();
+    const d = el.dataset.desc.toLowerCase();
+    if(!q || t.includes(q) || l.includes(q) || d.includes(q)){
+      el.style.display = '';
+    } else el.style.display = 'none';
+  });
+});
+
+// Accessibility: allow keyboard navigation to keep popover open while using arrow keys? (basic support already)
+
+</script>
+</body>
+</html>
